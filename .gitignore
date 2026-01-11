@@ -1,0 +1,14 @@
+# Python
+__pycache__/
+*.pyc
+venv/
+.env
+
+# Banco de dados
+*.db
+
+# VS Code
+.vscode/
+
+# Sistema
+.DS_Store
