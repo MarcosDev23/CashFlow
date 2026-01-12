@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>CashFlow Pro | Sistema Contábil</title>
+    <title>CashFlow Pro | Gestão Financeira Profissional</title>
 
     <link
       rel="stylesheet"
@@ -12,27 +12,29 @@
     <link rel="stylesheet" href="/static/css/style.css" />
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
   </head>
   <body>
     <div class="container">
       <aside class="sidebar">
         <div class="logo">
-          <i class="fas fa-chart-pie"></i> <span>CashFlow Pro</span>
+          <i class="fas fa-wallet"></i> <span>CashFlow Pro</span>
         </div>
         <nav>
           <ul>
             <li>
-              <a href="#" class="active" id="nav-dashboard"
-                ><i class="fas fa-home"></i> <span>Dashboard</span></a
+              <a href="#" class="active" data-target="view-dashboard"
+                ><i class="fas fa-chart-line"></i> <span>Dashboard</span></a
               >
             </li>
             <li>
-              <a href="#" id="nav-lancamentos"
+              <a href="#" data-target="view-lancamentos"
                 ><i class="fas fa-exchange-alt"></i> <span>Lançamentos</span></a
               >
             </li>
             <li>
-              <a href="#"
+              <a href="#" data-target="view-relatorios"
                 ><i class="fas fa-file-invoice-dollar"></i>
                 <span>Relatórios</span></a
               >
@@ -49,11 +51,8 @@
       <main class="main-content">
         <div id="view-dashboard" class="view-section">
           <header>
-            <h1>Dashboard Financeiro</h1>
-            <p
-              id="data-atual"
-              style="color: var(--text-muted); font-size: 0.9rem"
-            ></p>
+            <h1>Visão Geral</h1>
+            <p id="data-atual" class="text-muted"></p>
           </header>
 
           <section class="dashboard-cards">
@@ -76,92 +75,62 @@
           </section>
 
           <div class="charts-row">
-            <section class="chart-section">
-              <h3><i class="fas fa-chart-bar"></i> Comparativo Mensal</h3>
+            <div class="chart-section">
+              <h3>Comparativo Mensal</h3>
               <div class="chart-container">
                 <canvas id="canvasBarra"></canvas>
               </div>
-            </section>
-
-            <section class="chart-section">
-              <h3><i class="fas fa-chart-line"></i> Evolução de Saldo</h3>
+            </div>
+            <div class="chart-section">
+              <h3>Tendência de Saldo</h3>
               <div class="chart-container">
                 <canvas id="canvasLinha"></canvas>
               </div>
-            </section>
+            </div>
           </div>
         </div>
 
         <div id="view-lancamentos" class="view-section" style="display: none">
-          <header>
-            <h1>Gestão de Lançamentos</h1>
-          </header>
-
+          <header><h1>Movimentações</h1></header>
           <div class="bottom-row">
             <section class="form-section">
-              <h3>Novo Lançamento</h3>
+              <h3>Novo Registro</h3>
               <form id="finance-form">
-                <div class="form-group">
-                  <label>Tipo de Operação</label>
-                  <select id="tipo" required>
-                    <option value="entrada">Entrada (+)</option>
-                    <option value="saida">Saída Variável (-)</option>
-                    <option value="despesa_fixa">Despesa Fixa (-)</option>
-                    <option value="investimento">Investimento</option>
-                  </select>
-                </div>
-
-                <div class="form-group">
-                  <label>Descrição</label>
-                  <input
-                    type="text"
-                    id="descricao"
-                    placeholder="Ex: Aluguel, Venda, Mercado..."
-                    required
-                  />
-                </div>
-
-                <div class="form-group">
-                  <label>Valor (R$)</label>
-                  <input
-                    type="number"
-                    id="valor"
-                    placeholder="0,00"
-                    step="0.01"
-                    required
-                  />
-                </div>
-
-                <div class="form-group">
-                  <label>Data</label>
-                  <input type="date" id="data" required />
-                </div>
-
-                <div class="toggle-container" style="margin: 10px 0">
-                  <label style="font-size: 0.85rem; color: var(--text-muted)"
-                    >Lançamento Fixo?</label
-                  >
-                  <label class="switch">
-                    <input type="checkbox" id="fixo" />
-                    <span class="slider round"></span>
-                  </label>
-                </div>
-
+                <select id="tipo" required>
+                  <option value="entrada">Entrada (+)</option>
+                  <option value="saida">Saída (-)</option>
+                  <option value="despesa_fixa">Despesa Fixa (-)</option>
+                  <option value="investimento">Investimento</option>
+                </select>
+                <input
+                  type="text"
+                  id="descricao"
+                  placeholder="Descrição (Ex: Salário, Aluguel...)"
+                  required
+                />
+                <input
+                  type="number"
+                  id="valor"
+                  placeholder="Valor R$"
+                  step="0.01"
+                  required
+                />
+                <input type="date" id="data" required />
                 <button type="submit" class="btn-primary">
-                  <i class="fas fa-plus"></i> Salvar Lançamento
+                  Salvar Lançamento
                 </button>
               </form>
             </section>
 
             <section class="transactions-section">
-              <h3>Histórico Recente</h3>
+              <h3>Histórico</h3>
               <div class="table-scroll">
                 <table class="transactions-table">
                   <thead>
                     <tr>
                       <th>Data</th>
                       <th>Descrição</th>
-                      <th>Tipo</th>
+                      <th>Categoria</th>
                       <th>Valor</th>
                       <th>Ações</th>
                     </tr>
@@ -172,23 +141,66 @@
             </section>
           </div>
         </div>
+
+        <div id="view-relatorios" class="view-section" style="display: none">
+          <header><h1>Relatórios Detalhados</h1></header>
+
+          <div class="report-controls card">
+            <div class="filter-group">
+              <label>Mês de Referência:</label>
+              <input
+                type="month"
+                id="filtro-mes-relatorio"
+                onchange="carregarRelatorioTela()"
+              />
+            </div>
+            <div class="action-group">
+              <button onclick="baixarPlanilha()" class="btn-excel">
+                <i class="fas fa-file-excel"></i> Planilha
+              </button>
+              <button onclick="gerarPDF()" class="btn-pdf">
+                <i class="fas fa-file-pdf"></i> PDF
+              </button>
+            </div>
+          </div>
+
+          <section class="transactions-section">
+            <table class="transactions-table" id="tabela-relatorio">
+              <thead>
+                <tr>
+                  <th>Data</th>
+                  <th>Descrição</th>
+                  <th>Tipo</th>
+                  <th>Valor (R$)</th>
+                  <th>Saldo Acumulado</th>
+                </tr>
+              </thead>
+              <tbody id="report-body"></tbody>
+            </table>
+          </section>
+        </div>
       </main>
     </div>
 
     <script src="/static/js/charts.js"></script>
     <script>
-      // Define data de hoje no campo de data por padrão
+      // Configurações iniciais de data
       document.getElementById("data").valueAsDate = new Date();
-
-      // Exibe data formatada no header
-      const options = {
+      const dataH = new Date().toLocaleDateString("pt-BR", {
         weekday: "long",
         year: "numeric",
         month: "long",
         day: "numeric",
-      };
-      document.getElementById("data-atual").innerText =
-        new Date().toLocaleDateString("pt-BR", options);
+      });
+      document.getElementById("data-atual").innerText = dataH;
+
+      // Coloca o mês atual no filtro de relatório ao carregar
+      const agora = new Date();
+      const mesAtual =
+        agora.getFullYear() +
+        "-" +
+        String(agora.getMonth() + 1).padStart(2, "0");
+      document.getElementById("filtro-mes-relatorio").value = mesAtual;
     </script>
   </body>
 </html>

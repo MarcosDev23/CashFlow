@@ -1,7 +1,9 @@
 import os
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, send_file
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, timedelta
+import pandas as pd
+import io
 
 app = Flask(__name__)
 
@@ -152,6 +154,73 @@ def obter_insights():
         "alerta_excesso": alerta,
         "saidas_mes_anterior": saidas_anterior
     })
+
+@app.route('/api/relatorio_detalhado')
+def relatorio_detalhado():
+    mes = request.args.get('mes') # Formato YYYY-MM
+    query = Transacao.query
+    if mes:
+        query = query.filter(Transacao.data.like(f"{mes}%"))
+    
+    transacoes = query.order_by(Transacao.data.asc()).all()
+    
+    # Cálculo de saldo acumulado para o relatório
+    resultado = []
+    saldo_acumulado = 0
+    for t in transacoes:
+        valor_efetivo = t.valor if t.tipo == 'entrada' else -t.valor
+        saldo_acumulado += valor_efetivo
+        resultado.append({
+            "id": t.id,
+            "data": t.data,
+            "descricao": t.descricao,
+            "tipo": t.tipo,
+            "valor": t.valor,
+            "saldo_pos": saldo_acumulado
+        })
+    
+    return jsonify(resultado)
+
+@app.route('/api/exportar')
+def exportar_planilha():
+    mes_selecionado = request.args.get('mes')  # Recebe o mês do frontend (YYYY-MM)
+    
+    # Busca os dados no SQLite
+    query = Transacao.query
+    if mes_selecionado:
+        query = query.filter(Transacao.data.like(f"{mes_selecionado}%"))
+    
+    transacoes = query.all()
+    
+    if not transacoes:
+        return "Nenhum dado encontrado para este período", 404
+
+    # Criar a lista de dados para o Excel
+    dados_excel = []
+    for t in transacoes:
+        dados_excel.append({
+            'Data': t.data,
+            'Descrição': t.descricao,
+            'Tipo': t.tipo.capitalize(),
+            'Valor (R$)': t.valor if t.tipo == 'entrada' else -t.valor
+        })
+
+    # Transformar em DataFrame do Pandas
+    df = pd.DataFrame(dados_excel)
+
+    # Gerar o arquivo Excel em memória (BytesIO)
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False, sheet_name='Fluxo de Caixa')
+    
+    output.seek(0)
+
+    return send_file(
+        output,
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        as_attachment=True,
+        download_name=f'Relatorio_Financeiro_{mes_selecionado}.xlsx'
+    )
 
 # --- INICIALIZAÇÃO ---
 if __name__ == '__main__':

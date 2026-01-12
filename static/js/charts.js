@@ -1,30 +1,41 @@
-// static/js/charts.js
-
-// 1. GERENCIAMENTO DE NAVEGAÇÃO (SPA)
+// --- 1. CONFIGURAÇÃO DE NAVEGAÇÃO (SPA) ---
 document.querySelectorAll(".sidebar nav a").forEach((link) => {
   link.addEventListener("click", function (e) {
+    const targetId = this.getAttribute("data-target");
+
+    // Se o link não tiver data-target (ex: Configurações), ignora
+    if (!targetId) return;
+
     e.preventDefault();
+
+    // Remove classe active de todos e adiciona no atual
     document
       .querySelectorAll(".sidebar nav a")
       .forEach((l) => l.classList.remove("active"));
     this.classList.add("active");
 
-    const target = this.textContent.trim().toLowerCase();
-    const dashboard = document.getElementById("view-dashboard");
-    const lancamentos = document.getElementById("view-lancamentos");
+    // Esconde todas as seções e mostra a selecionada
+    document.querySelectorAll(".view-section").forEach((section) => {
+      section.style.display = "none";
+    });
 
-    if (target === "dashboard") {
-      dashboard.style.display = "block";
-      lancamentos.style.display = "none";
+    const targetSection = document.getElementById(targetId);
+    if (targetSection) {
+      targetSection.style.display = "block";
+    }
+
+    // Se voltar para o Dashboard, atualiza os gráficos
+    if (targetId === "view-dashboard") {
       atualizarTudo();
-    } else if (target === "lançamentos") {
-      dashboard.style.display = "none";
-      lancamentos.style.display = "block";
+    }
+    // Se for para Relatórios, carrega a tabela de relatório
+    else if (targetId === "view-relatorios") {
+      carregarRelatorioTela();
     }
   });
 });
 
-// 2. ENVIO DE NOVO LANÇAMENTO
+// --- 2. LÓGICA DE LANÇAMENTOS ---
 document
   .getElementById("finance-form")
   .addEventListener("submit", async (e) => {
@@ -35,7 +46,6 @@ document
       descricao: document.getElementById("descricao").value,
       valor: parseFloat(document.getElementById("valor").value),
       data: document.getElementById("data").value,
-      fixo: document.getElementById("fixo").checked,
     };
 
     await fetch("/api/transacoes", {
@@ -45,14 +55,16 @@ document
     });
 
     e.target.reset();
+    document.getElementById("data").valueAsDate = new Date(); // Reseta data para hoje
     atualizarTudo();
+    alert("Lançamento salvo com sucesso!");
   });
 
-// 3. ATUALIZAÇÃO GERAL DOS DADOS
+// --- 3. ATUALIZAÇÃO DO DASHBOARD ---
 async function atualizarTudo() {
   try {
-    const resResumo = await fetch("/api/resumo");
-    const resumo = await resResumo.json();
+    const res = await fetch("/api/resumo");
+    const resumo = await res.json();
 
     // Atualiza Cards
     document.getElementById(
@@ -64,32 +76,30 @@ async function atualizarTudo() {
     document.getElementById(
       "res-invest"
     ).innerText = `R$ ${resumo.investimentos.toFixed(2)}`;
+    document.getElementById(
+      "res-saldo"
+    ).innerText = `R$ ${resumo.saldo_final.toFixed(2)}`;
 
-    const saldoElem = document.getElementById("res-saldo");
-    saldoElem.innerText = `R$ ${resumo.saldo_final.toFixed(2)}`;
-    saldoElem.style.color =
-      resumo.saldo_final >= 0 ? "var(--accent-green)" : "var(--accent-red)";
+    // Cores do Saldo
+    document.getElementById("res-saldo").style.color =
+      resumo.saldo_final >= 0 ? "#2ecc71" : "#e74c3c";
 
-    // Renderiza Gráficos
-    renderizarGraficoBarras(resumo);
-    await carregarGraficoLinha();
-
-    // Atualiza Tabela
+    renderizarGraficos(resumo);
     carregarTabelaTransacoes();
-  } catch (error) {
-    console.error("Erro ao carregar dados:", error);
+  } catch (e) {
+    console.error("Erro ao atualizar:", e);
   }
 }
 
-// 4. GRÁFICO DE BARRAS (COMPARATIVO)
-function renderizarGraficoBarras(resumo) {
-  const ctx = document.getElementById("canvasBarra").getContext("2d");
+// --- 4. GRÁFICOS (BARRA E LINHA) ---
+function renderizarGraficos(resumo) {
+  // Gráfico de Barras
+  const ctxBarra = document.getElementById("canvasBarra").getContext("2d");
   if (window.chartBarra) window.chartBarra.destroy();
-
-  window.chartBarra = new Chart(ctx, {
+  window.chartBarra = new Chart(ctxBarra, {
     type: "bar",
     data: {
-      labels: ["Entradas", "Saídas", "Investimentos"],
+      labels: ["Entradas", "Saídas", "Invest"],
       datasets: [
         {
           label: "Mês Atual",
@@ -99,110 +109,102 @@ function renderizarGraficoBarras(resumo) {
             resumo.investimentos,
           ],
           backgroundColor: ["#2ecc71", "#e74c3c", "#3498db"],
-          borderRadius: 5,
-        },
-        {
-          label: "Mês Anterior",
-          data: [
-            resumo.entradas_anterior,
-            resumo.saidas_anterior,
-            resumo.invest_anterior,
-          ],
-          backgroundColor: "rgba(255, 255, 255, 0.1)",
-          borderRadius: 5,
         },
       ],
     },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: { legend: { labels: { color: "#fff" } } },
-    },
-  });
-}
-
-// 5. GRÁFICO DE LINHA (EVOLUÇÃO DE SALDO)
-async function carregarGraficoLinha() {
-  const res = await fetch("/api/transacoes");
-  const transacoes = await res.json();
-
-  // Organiza por data crescente
-  const transacoesOrdenadas = transacoes.sort(
-    (a, b) => new Date(a.data) - new Date(b.data)
-  );
-
-  let acumulado = 0;
-  const labels = [];
-  const dadosSaldo = [];
-
-  transacoesOrdenadas.forEach((t) => {
-    labels.push(t.data.split("-").reverse().slice(0, 2).join("/")); // Formato DD/MM
-    acumulado += t.tipo === "entrada" ? t.valor : -t.valor;
-    dadosSaldo.push(acumulado);
+    options: { responsive: true, maintainAspectRatio: false },
   });
 
-  const ctx = document.getElementById("canvasLinha").getContext("2d");
+  // Gráfico de Linha (Simulação de evolução básica)
+  const ctxLinha = document.getElementById("canvasLinha").getContext("2d");
   if (window.chartLinha) window.chartLinha.destroy();
-
-  window.chartLinha = new Chart(ctx, {
+  window.chartLinha = new Chart(ctxLinha, {
     type: "line",
     data: {
-      labels: labels,
+      labels: ["Início", "Atual"],
       datasets: [
         {
-          label: "Saldo Acumulado",
-          data: dadosSaldo,
+          label: "Saldo",
+          data: [0, resumo.saldo_final],
           borderColor: "#3498db",
-          backgroundColor: "rgba(52, 152, 219, 0.1)",
           fill: true,
-          tension: 0.4,
+          backgroundColor: "rgba(52, 152, 219, 0.1)",
         },
       ],
     },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
-    },
+    options: { responsive: true, maintainAspectRatio: false },
   });
 }
 
-// 6. TABELA DE LANÇAMENTOS
+// --- 5. TABELA DE LANÇAMENTOS ---
 async function carregarTabelaTransacoes() {
   const res = await fetch("/api/transacoes");
   const transacoes = await res.json();
   const tbody = document.getElementById("transactions-body");
-  tbody.innerHTML = "";
+  if (!tbody) return;
 
+  tbody.innerHTML = "";
   transacoes.forEach((t) => {
     const row = tbody.insertRow();
     row.innerHTML = `
             <td>${t.data}</td>
             <td>${t.descricao}</td>
-            <td><span class="badge-${t.tipo}">${t.tipo.replace(
-      "_",
-      " "
-    )}</span></td>
-            <td style="color: ${
-              t.tipo === "entrada" ? "var(--accent-green)" : "var(--accent-red)"
-            }">
-                R$ ${t.valor.toFixed(2)}
-            </td>
-            <td>
-                <button onclick="excluirTransacao(${t.id})" class="btn-delete">
-                    <i class="fas fa-trash"></i>
-                </button>
-            </td>
+            <td><span class="badge-${t.tipo}">${t.tipo}</span></td>
+            <td style="color:${
+              t.tipo === "entrada" ? "#2ecc71" : "#e74c3c"
+            }">R$ ${t.valor.toFixed(2)}</td>
+            <td><button onclick="excluirTransacao(${
+              t.id
+            })" class="btn-delete"><i class="fas fa-trash"></i></button></td>
         `;
   });
 }
 
 async function excluirTransacao(id) {
-  if (confirm("Deseja excluir este lançamento?")) {
+  if (confirm("Excluir este lançamento?")) {
     await fetch(`/api/transacoes/${id}`, { method: "DELETE" });
     atualizarTudo();
   }
 }
 
-// Inicia o sistema
+// --- 6. EXPORTAÇÃO E RELATÓRIO ---
+async function carregarRelatorioTela() {
+  const mes = document.getElementById("filtro-mes-relatorio").value;
+  const res = await fetch(`/api/relatorio_detalhado?mes=${mes}`);
+  const dados = await res.json();
+  const tbody = document.getElementById("report-body");
+  if (!tbody) return;
+
+  tbody.innerHTML = "";
+  dados.forEach((t) => {
+    const row = tbody.insertRow();
+    row.innerHTML = `
+            <td>${t.data}</td>
+            <td>${t.descricao}</td>
+            <td>${t.tipo}</td>
+            <td>R$ ${t.valor.toFixed(2)}</td>
+            <td>R$ ${t.saldo_pos.toFixed(2)}</td>
+        `;
+  });
+}
+
+function gerarPDF() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  doc.text("Relatório CashFlow Pro", 14, 15);
+  doc.autoTable({ html: "#tabela-relatorio", startY: 25 });
+  doc.save("relatorio.pdf");
+}
+
+function baixarPlanilha() {
+  const mes = document.getElementById("filtro-mes-relatorio").value;
+  if (!mes) {
+    alert("Selecione um mês primeiro!");
+    return;
+  }
+  // Redireciona o navegador para a rota de download
+  window.location.href = `/api/exportar?mes=${mes}`;
+}
+
+// Inicialização
 atualizarTudo();
