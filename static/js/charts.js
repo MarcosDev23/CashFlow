@@ -4,23 +4,22 @@
 document.querySelectorAll(".sidebar nav a").forEach((link) => {
   link.addEventListener("click", function (e) {
     e.preventDefault();
-
-    // Remove active de todos e adiciona no clicado
     document
       .querySelectorAll(".sidebar nav a")
       .forEach((l) => l.classList.remove("active"));
     this.classList.add("active");
 
-    // Lógica de esconder/mostrar seções
     const target = this.textContent.trim().toLowerCase();
+    const dashboard = document.getElementById("view-dashboard");
+    const lancamentos = document.getElementById("view-lancamentos");
+
     if (target === "dashboard") {
-      document.querySelector(".dashboard-cards").style.display = "grid";
-      document.querySelector(".charts-row").style.display = "grid";
-      document.querySelector(".bottom-row").style.display = "none"; // Esconde lançamentos
+      dashboard.style.display = "block";
+      lancamentos.style.display = "none";
+      atualizarTudo();
     } else if (target === "lançamentos") {
-      document.querySelector(".dashboard-cards").style.display = "none";
-      document.querySelector(".charts-row").style.display = "none";
-      document.querySelector(".bottom-row").style.display = "grid"; // Mostra formulário e tabela
+      dashboard.style.display = "none";
+      lancamentos.style.display = "block";
     }
   });
 });
@@ -180,7 +179,10 @@ async function carregarTabelaTransacoes() {
     row.innerHTML = `
             <td>${t.data}</td>
             <td>${t.descricao}</td>
-            <td><span class="badge-${t.tipo}">${t.tipo}</span></td>
+            <td><span class="badge-${t.tipo}">${t.tipo.replace(
+      "_",
+      " "
+    )}</span></td>
             <td style="color: ${
               t.tipo === "entrada" ? "var(--accent-green)" : "var(--accent-red)"
             }">
