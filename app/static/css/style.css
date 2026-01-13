@@ -339,3 +339,21 @@ header h1 {
     opacity: 1;
   }
 }
+
+.paginacao {
+  display: flex;
+  gap: 5px;
+  margin-top: 20px;
+  justify-content: center;
+}
+.btn-pag {
+  padding: 5px 10px;
+  border: 1px solid #ddd;
+  cursor: pointer;
+  background: white;
+}
+.btn-pag.ativa {
+  background: #3498db;
+  color: white;
+  border-color: #3498db;
+}
